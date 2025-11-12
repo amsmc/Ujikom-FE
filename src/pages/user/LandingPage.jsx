@@ -352,7 +352,7 @@ const LandingPage = () => {
                     <div className="flex flex-col">
                       <span className="text-xs text-gray-500 mb-1">Starting from</span>
                       <span className="text-2xl font-bold text-blue-600">
-                        Rp 45.000
+                        Rp 35.000
                       </span>
                     </div>
                     <Link 

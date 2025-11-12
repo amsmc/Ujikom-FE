@@ -32,10 +32,10 @@ OwnerApiService.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // ✅ Hapus token yang benar
+
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      localStorage.removeItem('authToken'); // hapus juga yang lama jika ada
+      localStorage.removeItem('authToken'); 
       window.location.href = '/login';
     }
     return Promise.reject(error);

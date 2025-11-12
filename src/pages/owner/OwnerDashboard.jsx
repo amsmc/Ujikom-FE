@@ -1,5 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ownerAPI } from '../../services/OwnerApiService';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
 
 const OwnerDashboard = () => {
   const [revenueData, setRevenueData] = useState(null);
@@ -57,6 +83,159 @@ const OwnerDashboard = () => {
       year: 'Tahun Ini'
     };
     return labels[period];
+  };
+
+  // Chart Data Preparation
+  const dailyRevenueChartData = {
+    labels: dailyRevenue.map(day => day.date),
+    datasets: [
+      {
+        label: 'Pendapatan',
+        data: dailyRevenue.map(day => day.revenue),
+        borderColor: 'rgb(147, 51, 234)',
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        tension: 0.4,
+        fill: true,
+      },
+    ],
+  };
+
+  const movieRevenueChartData = {
+    labels: movieRevenue.slice(0, 10).map(movie => movie.movie_title),
+    datasets: [
+      {
+        label: 'Pendapatan',
+        data: movieRevenue.slice(0, 10).map(movie => movie.total_revenue),
+        backgroundColor: [
+          'rgba(147, 51, 234, 0.8)',
+          'rgba(99, 102, 241, 0.8)',
+          'rgba(59, 130, 246, 0.8)',
+          'rgba(14, 165, 233, 0.8)',
+          'rgba(6, 182, 212, 0.8)',
+          'rgba(20, 184, 166, 0.8)',
+          'rgba(34, 197, 94, 0.8)',
+          'rgba(163, 230, 53, 0.8)',
+          'rgba(234, 179, 8, 0.8)',
+          'rgba(249, 115, 22, 0.8)',
+        ],
+      },
+    ],
+  };
+
+  const movieTicketsChartData = {
+    labels: movieRevenue.slice(0, 5).map(movie => movie.movie_title),
+    datasets: [
+      {
+        label: 'Total Tiket',
+        data: movieRevenue.slice(0, 5).map(movie => movie.total_tickets),
+        backgroundColor: movieRevenue.slice(0, 5).map((_, index) => {
+          const colors = [
+            'rgba(147, 51, 234, 0.8)',
+            'rgba(99, 102, 241, 0.8)',
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(14, 165, 233, 0.8)',
+            'rgba(6, 182, 212, 0.8)',
+          ];
+          return colors[index];
+        }),
+        borderWidth: 2,
+        borderColor: '#fff',
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: 12,
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += formatCurrency(context.parsed.y);
+            }
+            return label;
+          }
+        }
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value) {
+            return 'Rp' + (value / 1000000).toFixed(0) + 'jt';
+          }
+        },
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)',
+        }
+      },
+      x: {
+        grid: {
+          display: false,
+        }
+      }
+    },
+  };
+
+  const barChartOptions = {
+    ...chartOptions,
+    indexAxis: 'y',
+    scales: {
+      x: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value) {
+            return 'Rp' + (value / 1000000).toFixed(0) + 'jt';
+          }
+        },
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)',
+        }
+      },
+      y: {
+        grid: {
+          display: false,
+        }
+      }
+    },
+  };
+
+  const doughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          padding: 20,
+          usePointStyle: true,
+        }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: 12,
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = formatNumber(context.parsed);
+            return `${label}: ${value} tiket`;
+          }
+        }
+      },
+    },
   };
 
   return (
@@ -167,79 +346,87 @@ const OwnerDashboard = () => {
               </div>
             )}
 
-            {/* Revenue by Movie */}
-            <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6 mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-neutral-900">Pendapatan per Film</h3>
-                <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
-                  {movieRevenue.length} film
-                </span>
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Daily Revenue Line Chart */}
+              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-neutral-900">Tren Pendapatan Harian</h3>
+                    <p className="text-sm text-neutral-500 mt-1">30 hari terakhir</p>
+                  </div>
+                </div>
+                <div style={{ height: '300px' }}>
+                  <Line data={dailyRevenueChartData} options={chartOptions} />
+                </div>
               </div>
-              
-              <div className="overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-neutral-200">
-                      <th className="text-left py-3 px-4 font-medium text-neutral-600">Film</th>
-                      <th className="text-right py-3 px-4 font-medium text-neutral-600">Pendapatan</th>
-                      <th className="text-right py-3 px-4 font-medium text-neutral-600">Pemesanan</th>
-                      <th className="text-right py-3 px-4 font-medium text-neutral-600">Tiket</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {movieRevenue.map((movie, index) => (
-                      <tr key={index} className="hover:bg-neutral-50 transition-colors duration-150">
-                        <td className="py-3 px-4">
-                          <div className="font-medium text-neutral-900">{movie.movie_title}</div>
-                        </td>
-                        <td className="py-3 px-4 text-right font-semibold text-green-600">
-                          {formatCurrency(movie.total_revenue)}
-                        </td>
-                        <td className="py-3 px-4 text-right text-neutral-700">
-                          {formatNumber(movie.total_bookings)}
-                        </td>
-                        <td className="py-3 px-4 text-right text-neutral-700">
-                          {formatNumber(movie.total_tickets)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+              {/* Movie Revenue Bar Chart */}
+              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-neutral-900">Top 10 Film Terlaris</h3>
+                    <p className="text-sm text-neutral-500 mt-1">Berdasarkan pendapatan</p>
+                  </div>
+                </div>
+                <div style={{ height: '300px' }}>
+                  <Bar data={movieRevenueChartData} options={barChartOptions} />
+                </div>
               </div>
             </div>
 
-            {/* Daily Revenue Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-neutral-900">Pendapatan Harian (30 Hari Terakhir)</h3>
-                <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
-                  {dailyRevenue.length} hari
-                </span>
+            {/* Movie Tickets Doughnut and Table */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+              {/* Doughnut Chart */}
+              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-neutral-900">Distribusi Tiket</h3>
+                  <p className="text-sm text-neutral-500 mt-1">Top 5 film</p>
+                </div>
+                <div style={{ height: '300px' }}>
+                  <Doughnut data={movieTicketsChartData} options={doughnutOptions} />
+                </div>
               </div>
-              
-              <div className="overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-neutral-200">
-                      <th className="text-left py-3 px-4 font-medium text-neutral-600">Tanggal</th>
-                      <th className="text-right py-3 px-4 font-medium text-neutral-600">Pendapatan</th>
-                      <th className="text-right py-3 px-4 font-medium text-neutral-600">Pemesanan</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {dailyRevenue.map((day, index) => (
-                      <tr key={index} className="hover:bg-neutral-50 transition-colors duration-150">
-                        <td className="py-3 px-4 text-neutral-700">{day.date}</td>
-                        <td className="py-3 px-4 text-right font-semibold text-green-600">
-                          {formatCurrency(day.revenue)}
-                        </td>
-                        <td className="py-3 px-4 text-right text-neutral-700">
-                          {formatNumber(day.bookings)}
-                        </td>
+
+              {/* Revenue by Movie Table */}
+              <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-neutral-900">Detail Pendapatan per Film</h3>
+                  <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
+                    {movieRevenue.length} film
+                  </span>
+                </div>
+                
+                <div className="overflow-auto" style={{ maxHeight: '340px' }}>
+                  <table className="w-full">
+                    <thead className="sticky top-0 bg-white">
+                      <tr className="border-b border-neutral-200">
+                        <th className="text-left py-3 px-4 font-medium text-neutral-600">Film</th>
+                        <th className="text-right py-3 px-4 font-medium text-neutral-600">Pendapatan</th>
+                        <th className="text-right py-3 px-4 font-medium text-neutral-600">Pemesanan</th>
+                        <th className="text-right py-3 px-4 font-medium text-neutral-600">Tiket</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                      {movieRevenue.map((movie, index) => (
+                        <tr key={index} className="hover:bg-neutral-50 transition-colors duration-150">
+                          <td className="py-3 px-4">
+                            <div className="font-medium text-neutral-900">{movie.movie_title}</div>
+                          </td>
+                          <td className="py-3 px-4 text-right font-semibold text-green-600">
+                            {formatCurrency(movie.total_revenue)}
+                          </td>
+                          <td className="py-3 px-4 text-right text-neutral-700">
+                            {formatNumber(movie.total_bookings)}
+                          </td>
+                          <td className="py-3 px-4 text-right text-neutral-700">
+                            {formatNumber(movie.total_tickets)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </>
